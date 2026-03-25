@@ -181,15 +181,15 @@
       const hash = window.location.hash.slice(1);
       const params = new URLSearchParams(hash);
       return {
-        a: params.get('a') ? decodeURIComponent(params.get('a')) : null,
-        b: params.get('b') ? decodeURIComponent(params.get('b')) : null
+        a: params.get('a') ? atob(params.get('a')) : null,
+        b: params.get('b') ? atob(params.get('b')) : null
       };
     }
     
     function setState(state) {
       const params = new URLSearchParams();
-      if (state.a) params.set('a', encodeURIComponent(state.a));
-      if (state.b) params.set('b', encodeURIComponent(state.b));
+      if (state.a) params.set('a', btoa(state.a));
+      if (state.b) params.set('b', btoa(state.b));
       window.location.hash = params.toString();
     }
     
