@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>actually</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background: #fafafa;
+      color: #222;
+    }
+    
+    .container {
+      max-width: 600px;
+      width: 100%;
+    }
+    
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      font-weight: 400;
+    }
+    
+    .subtitle {
+      color: #666;
+      margin-bottom: 2rem;
+    }
+    
+    .question {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+      font-weight: 500;
+    }
+    
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 1rem;
+      font-size: 1rem;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      resize: vertical;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    
+    textarea:focus {
+      outline: none;
+      border-color: #333;
+    }
+    
+    button {
+      margin-top: 1rem;
+      padding: 0.75rem 2rem;
+      font-size: 1rem;
+      background: #222;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    button:hover {
+      background: #444;
+    }
+    
+    button:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
+    
+    .reveal {
+      display: none;
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .reveal.visible {
+      display: block;
+    }
+    
+    .reveal-box {
+      padding: 1rem;
+      background: #f5f5f5;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+    }
+    
+    .reveal-box:last-child {
+      margin-bottom: 0;
+    }
+    
+    .reveal-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #666;
+      margin-bottom: 0.5rem;
+    }
+    
+    .share-link {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #e8f4e8;
+      border-radius: 6px;
+      word-break: break-all;
+      font-family: monospace;
+      font-size: 0.875rem;
+    }
+    
+    .waiting {
+      text-align: center;
+      padding: 2rem;
+      color: #666;
+    }
+    
+    .new-btn {
+      margin-top: 1.5rem;
+      background: transparent;
+      color: #666;
+      border: 1px solid #ddd;
+    }
+    
+    .new-btn:hover {
+      background: #f5f5f5;
+      color: #222;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>actually</h1>
+    <p class="subtitle">What are you actually trying to say?</p>
+    
+    <div id="input-view">
+      <p class="question">Strip away the noise. One sentence.</p>
+      <textarea id="my-truth" placeholder="What I'm actually trying to say is..."></textarea>
+      <button id="submit-btn" onclick="submitTruth()">Submit</button>
+    </div>
+    
+    <div id="waiting-view" class="waiting" style="display: none;">
+      <p>Waiting for the other person...</p>
+      <p class="share-link" id="share-url"></p>
+    </div>
+    
+    <div id="reveal-view" class="reveal">
+      <div class="reveal-box">
+        <div class="reveal-label">Person A said:</div>
+        <div id="truth-a"></div>
+      </div>
+      <div class="reveal-box">
+        <div class="reveal-label">Person B said:</div>
+        <div id="truth-b"></div>
+      </div>
+      <button class="new-btn" onclick="startNew()">Start new</button>
+    </div>
+  </div>
+
+  <script>
+    // State stored in URL hash
+    // Format: #a=<encoded>&b=<encoded>
+    // a = Person A's truth (creator)
+    // b = Person B's truth (responder)
+    
+    const $ = id => document.getElementById(id);
+    
+    function getState() {
+      const hash = window.location.hash.slice(1);
+      const params = new URLSearchParams(hash);
+      return {
+        a: params.get('a') ? decodeURIComponent(params.get('a')) : null,
+        b: params.get('b') ? decodeURIComponent(params.get('b')) : null
+      };
+    }
+    
+    function setState(state) {
+      const params = new URLSearchParams();
+      if (state.a) params.set('a', encodeURIComponent(state.a));
+      if (state.b) params.set('b', encodeURIComponent(state.b));
+      window.location.hash = params.toString();
+    }
+    
+    function render() {
+      const state = getState();
+      
+      // Both truths submitted - reveal!
+      if (state.a && state.b) {
+        $('input-view').style.display = 'none';
+        $('waiting-view').style.display = 'none';
+        $('reveal-view').classList.add('visible');
+        $('truth-a').textContent = state.a;
+        $('truth-b').textContent = state.b;
+        return;
+      }
+      
+      // Person A submitted, waiting for B
+      if (state.a && !state.b) {
+        // Check if we're Person A (creator) or Person B (responder)
+        const isCreator = sessionStorage.getItem('isCreator') === 'true';
+        
+        if (isCreator) {
+          // Creator waits
+          $('input-view').style.display = 'none';
+          $('waiting-view').style.display = 'block';
+          $('share-url').textContent = window.location.href;
+        } else {
+          // Responder enters their truth
+          $('input-view').style.display = 'block';
+          $('waiting-view').style.display = 'none';
+          $('submit-btn').textContent = 'Reveal both';
+        }
+        return;
+      }
+      
+      // Fresh start
+      $('input-view').style.display = 'block';
+      $('waiting-view').style.display = 'none';
+      $('reveal-view').classList.remove('visible');
+    }
+    
+    function submitTruth() {
+      const text = $('my-truth').value.trim();
+      if (!text) return;
+      
+      const state = getState();
+      
+      if (!state.a) {
+        // Person A submitting
+        sessionStorage.setItem('isCreator', 'true');
+        setState({ a: text });
+      } else {
+        // Person B submitting
+        setState({ a: state.a, b: text });
+      }
+      
+      render();
+    }
+    
+    function startNew() {
+      sessionStorage.removeItem('isCreator');
+      window.location.hash = '';
+      $('my-truth').value = '';
+      render();
+    }
+    
+    // Re-render on hash change
+    window.addEventListener('hashchange', render);
+    
+    // Initial render
+    render();
+  </script>
+</body>
+</html>
